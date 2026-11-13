@@ -1,0 +1,6 @@
+build/
+bin/
+*.csv
+*.png
+*.tar.gz
+trace*.txt
