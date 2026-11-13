@@ -1,13 +1,13 @@
 #!/bin/bash
 # build.sh - compile and link the Virtual Memory Visualizer (bin/vmv).
-# Usage: ./build.sh [all|clean]
+# Usage: ./build.sh [all|clean|check]
 set -euo pipefail   # [Lab 3] stop on any error, unset variable or failed pipe stage
 
 # [Lab 4] flags kept in an array so each flag stays one word (shellcheck-clean quoting)
 CFLAGS=(-Wall -Wextra -g -pthread -fopenmp)
 
 # [Lab 4] source file names without .c; later Parts append names to this array
-VMV_SRCS=(main procfs classify render ioutil live workload)
+VMV_SRCS=(main procfs classify render ioutil live workload scan server)
 
 case "${1:-all}" in   # [Lab 4] case on the first argument, "all" if none given
     all)
@@ -28,14 +28,31 @@ case "${1:-all}" in   # [Lab 4] case on the first argument, "all" if none given
         echo "gcc ${CFLAGS[*]} -o bin/vmv_demo build/demo_main.o build/workload.o"
         # [Lab 2] link it with the shared workload.o (same object used by bin/vmv)
         gcc "${CFLAGS[@]}" -o bin/vmv_demo build/demo_main.o build/workload.o
+        echo "gcc ${CFLAGS[*]} -c src/client.c -o build/client.o"
+        # [Lab 2] compile the socket client
+        gcc "${CFLAGS[@]}" -c src/client.c -o build/client.o
+        echo "gcc ${CFLAGS[*]} -o bin/vmv_client build/client.o"
+        # [Lab 2] link it on its own: the client needs no other object file
+        gcc "${CFLAGS[@]}" -o bin/vmv_client build/client.o
         chmod 755 bin/*   # [Lab 2] rwxr-xr-x: owner may write, everyone may run
         echo "Build OK: bin/vmv"
         ;;
     clean)
         rm -rf build bin
         ;;
+    check)
+        # static analysis of every shell script (catches quoting bugs and the like)
+        if command -v shellcheck > /dev/null; then
+            rc=0
+            shellcheck build.sh vmv.sh menu.sh scripts/*.sh || rc=$?   # [Lab 3] keep the exit code
+            exit "$rc"
+        else
+            echo "shellcheck not installed: sudo apt install shellcheck"
+            exit 0
+        fi
+        ;;
     *)
-        echo "Usage: ./build.sh [all|clean]"
+        echo "Usage: ./build.sh [all|clean|check]"
         exit 1
         ;;
 esac
