@@ -186,6 +186,27 @@ static void print_removed(const struct region *r, int n,
     }
 }
 
+void render_csv(const struct region *r, int n)
+{
+    const char *p;
+    int i;
+
+    printf("start,end,perms,kind,size_bytes,path\n");
+    for (i = 0; i < n; i++) {
+        printf("0x%016lx,0x%016lx,%s,%s,%lu,\"",
+               r[i].start, r[i].end, r[i].perms, kind_name(r[i].kind),
+               r[i].end - r[i].start);
+        /* CSV rule: inside a quoted field a " is written as "" */
+        for (p = r[i].path; *p != '\0'; p++) {
+            if (*p == '"')
+                printf("\"\"");
+            else
+                printf("%c", *p);
+        }
+        printf("\"\n");
+    }
+}
+
 void render_snapshot(const struct snap_hdr *hdr, const struct region *r,
                      const struct snap_hdr *prev_hdr, const struct region *prev,
                      int color, int clear_screen)
