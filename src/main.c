@@ -4,6 +4,9 @@
  *   vmv snapshot <pid> [-o FILE] [--no-color]
  *   vmv live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color]
  *   vmv demo [-i SEC] [-n COUNT] [-o FILE] [--no-color]
+ *   vmv scan [--repeat N]     (PIDs on stdin)
+ *   vmv csv <pid>
+ *   vmv serve
  *
  * Exit codes: 0 ok, 1 usage error, 2 no such process, 3 permission denied.
  */
@@ -17,15 +20,20 @@
 #include "procfs.h"
 #include "render.h"
 #include "live.h"
+#include "scan.h"
+#include "server.h"
 
-enum command { CMD_SNAPSHOT, CMD_LIVE, CMD_DEMO };
+enum command { CMD_SNAPSHOT, CMD_LIVE, CMD_DEMO, CMD_SCAN, CMD_CSV, CMD_SERVE };
 
 static void usage(void)
 {
     fprintf(stderr,
             "usage: vmv snapshot <pid> [-o FILE] [--no-color]\n"
             "       vmv live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color]\n"
-            "       vmv demo [-i SEC] [-n COUNT] [-o FILE] [--no-color]\n");
+            "       vmv demo [-i SEC] [-n COUNT] [-o FILE] [--no-color]\n"
+            "       vmv scan [--repeat N]     (PIDs on stdin, e.g.  ls /proc | grep '^[0-9][0-9]*$' | ./bin/vmv scan)\n"
+            "       vmv csv <pid>\n"
+            "       vmv serve\n");
     exit(1);
 }
 
@@ -61,8 +69,8 @@ static int redirect_stdout(const char *file)
     return 0;
 }
 
-/* Part 1: one snapshot, printed once. */
-static int cmd_snapshot(int pid, const char *outfile, int color)
+/* snapshot (Part 1) and csv (Part 3): one snapshot, printed once. */
+static int cmd_snapshot(int pid, const char *outfile, int color, int as_csv)
 {
     struct snap_hdr hdr;
     struct region *regions;
@@ -90,7 +98,10 @@ static int cmd_snapshot(int pid, const char *outfile, int color)
             free(regions);
             return 1;
         }
-        render_snapshot(&hdr, regions, NULL, NULL, color, 0);
+        if (as_csv)
+            render_csv(regions, hdr.nregions);
+        else
+            render_snapshot(&hdr, regions, NULL, NULL, color, 0);
         fflush(stdout);
     }
 
@@ -105,8 +116,10 @@ int main(int argc, char *argv[])
     int pid = -1;
     int interval = 1;            /* -i: seconds between samples */
     int count = 0;               /* -n: 0 = until the process ends */
+    int repeat = 1;              /* --repeat: how many times scan runs */
     int color = 1;               /* colour on by default */
     const char *outfile = NULL;
+    int takes_pid, takes_output, takes_timing;
     int rc;
 
     if (argc < 2)
@@ -117,39 +130,66 @@ int main(int argc, char *argv[])
         cmd = CMD_LIVE;
     else if (strcmp(argv[1], "demo") == 0)
         cmd = CMD_DEMO;
+    else if (strcmp(argv[1], "scan") == 0)
+        cmd = CMD_SCAN;
+    else if (strcmp(argv[1], "csv") == 0)
+        cmd = CMD_CSV;
+    else if (strcmp(argv[1], "serve") == 0)
+        cmd = CMD_SERVE;
     else
         usage();
 
+    /* which options each command accepts */
+    takes_pid    = (cmd == CMD_SNAPSHOT || cmd == CMD_LIVE || cmd == CMD_CSV);
+    takes_output = (cmd == CMD_SNAPSHOT || cmd == CMD_LIVE || cmd == CMD_DEMO);
+    takes_timing = (cmd == CMD_LIVE || cmd == CMD_DEMO);
+
     /* ---- parse the rest of argv by hand: options may come in any order ---- */
     for (i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "-o") == 0) {
+        if (strcmp(argv[i], "-o") == 0 && takes_output) {
             if (i + 1 >= argc || outfile != NULL)
                 usage();
             outfile = argv[++i];
             color = 0;           /* a file should not contain escape codes */
-        } else if (strcmp(argv[i], "--no-color") == 0) {
+        } else if (strcmp(argv[i], "--no-color") == 0 && takes_output) {
             color = 0;
-        } else if (strcmp(argv[i], "-i") == 0 && cmd != CMD_SNAPSHOT) {
+        } else if (strcmp(argv[i], "-i") == 0 && takes_timing) {
             if (i + 1 >= argc || !is_digits(argv[i + 1]))
                 usage();
             interval = atoi(argv[++i]);
             if (interval < 1)    /* whole seconds, because sleep() takes seconds */
                 usage();
-        } else if (strcmp(argv[i], "-n") == 0 && cmd != CMD_SNAPSHOT) {
+        } else if (strcmp(argv[i], "-n") == 0 && takes_timing) {
             if (i + 1 >= argc || !is_digits(argv[i + 1]))
                 usage();
             count = atoi(argv[++i]);
-        } else if (cmd != CMD_DEMO && pid == -1 && is_digits(argv[i])) {
+        } else if (strcmp(argv[i], "--repeat") == 0 && cmd == CMD_SCAN) {
+            if (i + 1 >= argc || !is_digits(argv[i + 1]))
+                usage();
+            repeat = atoi(argv[++i]);
+            if (repeat < 1)
+                usage();
+        } else if (takes_pid && pid == -1 && is_digits(argv[i])) {
             pid = atoi(argv[i]);
         } else {
             usage();
         }
     }
-    if (cmd != CMD_DEMO && pid < 0)
+    if (takes_pid && pid < 0)
         usage();
 
-    if (cmd == CMD_SNAPSHOT)
-        return cmd_snapshot(pid, outfile, color);
+    switch (cmd) {
+    case CMD_SNAPSHOT:
+        return cmd_snapshot(pid, outfile, color, 0);
+    case CMD_CSV:
+        return cmd_snapshot(pid, NULL, 0, 1);
+    case CMD_SCAN:
+        return run_scan(repeat);
+    case CMD_SERVE:
+        return run_server();
+    default:
+        break;
+    }
 
     /* live and demo: redirect first, the forked children inherit fd 1 */
     if (outfile != NULL && redirect_stdout(outfile) < 0)
