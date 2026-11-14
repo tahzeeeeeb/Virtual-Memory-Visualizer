@@ -79,15 +79,16 @@ area with the one inherited from the parent. In standalone `bin/vmv_demo` it sho
 row that grew (`~`).
 
 **11. Why does each thread add memory, and why is there only one maps file?**
-Every pthread needs its own stack - by default the size of `ulimit -s` (8 MiB on our VM) -
-plus a 4 KiB no-access guard page below it, so a stack overflow crashes instead of
-overwriting other memory. All threads share one address space, so the whole process has one
-maps file; `ps -L` showed NLWP 5 for the target in phase 4. On our VM the four stacks
-appeared as one 32 MiB region of 8196 pages = 4 x (2048 + 1) pages, with no separate guard
-rows. Our explanation: glibc 2.44 marks the guard page with madvise() instead of a separate
-`---p` mapping, so the stacks merge. Older glibc versions show each guard as its own `---p`
-region, and strace shows `mmap(..., PROT_NONE, ...)` + `mprotect` + `clone3`; we did not
-test an older glibc ourselves. The threads are created in `run_workload()` in `src/workload.c`.
+Every pthread (created in `run_workload()` in `src/workload.c`) needs its own stack - by
+default the size of `ulimit -s`, 8 MiB on our VM - plus a 4 KiB no-access guard page below
+it, so an overflow crashes instead of overwriting other memory; all threads share one address
+space, so the process has one maps file, and `ps -L` showed NLWP 5 in phase 4. Older glibc
+maps each guard as a separate 4 KiB `---p` mapping, so maps shows a GUARD row directly below
+every THREAD-STACK? row. On our VM (glibc 2.44) strace showed, for each thread,
+`mmap(NULL, 8392704, PROT_READ|PROT_WRITE, ...|MAP_STACK, ...)`, then
+`madvise(<lowest page>, 4096, MADV_GUARD_INSTALL)`, then `clone3`: the guard is installed
+inside the read-write mapping, so maps has no `---p` row and the four neighbouring stacks
+merge into one 32 MiB region of 8196 pages (4 x (2048 + 1)).
 
 **12. Do thread stacks go away after pthread_join?**
 Not always: glibc keeps freed thread stacks in a cache to reuse them for the next thread.
@@ -162,10 +163,13 @@ C program. In every run on our VM 2 to 4 PIDs "exited before they could be read"
 likely the `ls` and `grep` processes of that same pipeline.
 
 **23. Why does THREAD-STACK? have a question mark?**
-maps does not label thread stacks. `classify_regions()` in `src/classify.c` guesses one when
-it sees anonymous `rw-p` memory of at least 64 KiB directly above an anonymous `---p` guard
-page; a malloc arena can occasionally look the same. On our VM the label never appeared,
-because with glibc 2.44 there were no separate guard regions (see question 11).
+maps does not label thread stacks, so `classify_regions()` in `src/classify.c` infers one
+from the layout: anonymous `rw-p` memory of at least 64 KiB directly above an anonymous `---p`
+guard mapping. With older glibc that matches every pthread stack, but a malloc arena can
+occasionally look the same, hence the question mark. With glibc 2.44, as on our VM, the guard
+is installed with `madvise(MADV_GUARD_INSTALL)` inside the stack's own mapping, so there is no
+`---p` neighbour, the label never appears and the stacks show as ANON-MMAP (question 11); we
+deliberately do not guess thread stacks from their size.
 
 **24. Why does the demo target show up as "vmv" and not "vmv_demo"?**
 `run_demo()` forks a copy of vmv and calls `run_workload()` in it; it does not exec a new

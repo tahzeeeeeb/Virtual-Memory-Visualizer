@@ -122,13 +122,13 @@ void run_workload(int phase_sec, int start_delay, int standalone)
         }
         created++;
     }
-    set_phase("4: 4 pthreads running -> 4 THREAD-STACK? regions + guard pages, Threads: 5");
+    set_phase("4: 4 pthreads running -> 4 new 8 MiB stacks, Threads: 5");
     sleep(phase_sec);
 
     /* ---- phase 5: wait for the threads ---- */
     for (i = 0; i < created; i++)
         pthread_join(t[i], NULL);   /* [Lab 9] wait for each thread to finish */
-    set_phase("5: threads joined -> their stacks may stay mapped (glibc caches thread stacks for reuse)");
+    set_phase("5: threads joined -> stacks may stay mapped (glibc reuses them)");
     sleep(phase_sec);
 
     /* ---- phase 6: freeing the big block gives the region back ---- */

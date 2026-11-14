@@ -145,8 +145,7 @@ static int show_stream(int rfd, int pid, int color, int demo,
                         have_prev ? prev : NULL, color, 1);
         if (demo)
             /* [Lab 7] the process tree: parent -> two children */
-            printf("Processes: vmv parent PID %d -> target PID %d (its PPid is shown "
-                   "above), sampler PID %d (pipe: sampler -> parent)\n",
+            printf("Processes: vmv %d -> target %d, sampler %d (pipe: sampler -> vmv)\n",
                    getpid(), (int)target, (int)sampler);   /* [Lab 6] getpid */
         fflush(stdout);
         samples_shown++;

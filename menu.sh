@@ -202,6 +202,7 @@ main() {
     echo "Virtual Memory Visualizer - CS251 Operating Systems Lab"
     PS3="Choose a demo: "
     # [Lab 4] select prints the numbered list and reads a number into $REPLY
+    # shellcheck disable=SC2034  # [Lab 4] select needs a variable name; the case branches on $REPLY
     select choice in "${options[@]}"; do
         # Each demo runs in an `||` context: a failure prints a message and the menu
         # carries on instead of set -e ending the whole script.

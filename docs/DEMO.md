@@ -86,12 +86,13 @@ list regions that appeared (`+ new`) or disappeared (`- gone`). Point at, phase 
   Reserved +128 MiB, but In RAM barely changes: demand paging, nothing is in RAM until it
   is touched.
 - **3 touch 64 MiB** - In RAM +64 MiB and the minor page faults jump.
-- **4 four pthreads** - `5 threads (+4)` and Reserved +32 MiB (4 stacks of 8 MiB): a
-  `thread stacks` row, or, with glibc 2.44 as on our VM, `+ new ANON-MMAP 32.0 MiB`.
-  In the second terminal run `ps -L -p <target pid> -o pid,lwp,nlwp,comm` - the target
-  PID is in the "Processes:" line under the diagram. NLWP is 5: one process, five threads.
-  (Phase 4 lasts about 6 seconds. If you do not want to type the PID, `ps -L -C vmv -o pid,lwp,nlwp,comm`
-  lists all three vmv processes; the target is the one with NLWP 5.)
+- **4 four pthreads** - point at the new 32 MiB region (4 stacks of 8 MiB: on our VM
+  `+ new ANON-MMAP 32.0 MiB`, on older glibc a `thread stacks` row) and at "Threads: 5"
+  (`5 threads (+4)` in the header). To prove there are 5 threads, run in the second
+  terminal `ps -L -p <pid> -o pid,lwp,nlwp,comm` with the target PID from the
+  `Processes:` line under the diagram: NLWP is 5 - one process, five threads.
+  (Phase 4 lasts about 6 seconds; `ps -L -C vmv -o pid,lwp,nlwp,comm` needs no PID and
+  lists all three vmv processes - the target is the one with NLWP 5.)
 - **5 threads joined** - Threads back to 1, but the stack memory stays: glibc keeps
   freed thread stacks for reuse.
 - **6 free(128 MiB)** - `- gone ANON-MMAP 128.0 MiB` (munmap); Reserved -128 MiB.
@@ -188,13 +189,17 @@ Differences we saw on our VM that may not happen on the class machine:
 
 - **Phase 4 showed no `THREAD-STACK?` and no `GUARD` rows.** The four stacks appeared
   as one 32 MiB ANON-MMAP row of 8196 pages (= 4 x (2048 + 1) pages: 8 MiB of stack
-  plus a 4 KiB guard page each). Our best explanation: glibc 2.44 marks the guard page
-  with madvise() instead of making it a separate no-access mapping, so maps no longer
-  shows it and the stacks merge into one region. On an older glibc (for example
-  Ubuntu 24.04) we expect separate `GUARD` + `THREAD-STACK?` rows; we have not tested this.
-- **Options 6 and 7 were not run on our VM** because strace was not installed. The two
-  sizes in option 6 (134221824 and 8392704) match the region sizes we measured above,
-  but the exact system calls depend on glibc - run the option once before class.
+  plus a 4 KiB guard page each). strace of `./bin/vmv_demo 1` showed why: for each thread
+  glibc 2.44 maps 8392704 bytes read-write and then calls
+  `madvise(<lowest page>, 4096, MADV_GUARD_INSTALL)`, so the guard lives inside the
+  mapping, maps has no `---p` row, and the stacks merge into one region. On an older glibc
+  (for example Ubuntu 24.04) we expect separate `GUARD` + `THREAD-STACK?` rows; we have
+  not tested this. Menu option 6 does not trace `madvise`, so it shows the `mmap` and
+  `clone3` calls but not the guard installation.
+- **Menu options 6 and 7 themselves have not been rehearsed yet.** The direct strace above
+  confirmed the 8392704-byte stack `mmap` and `clone3`; 134221824 matches the 128 MiB
+  region we measured. The exact system calls depend on glibc - run both options once
+  before class.
 
 ## If something goes wrong live
 
