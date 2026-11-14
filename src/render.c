@@ -186,13 +186,26 @@ static void print_removed(const struct region *r, int n,
     }
 }
 
-void render_csv(const struct region *r, int n)
+void render_csv(const struct snap_hdr *hdr, const struct region *r)
 {
+    const struct proc_info *in = &hdr->info;
     const char *p;
     int i;
 
+    /* One info line first, for tools that draw a live view (tools/vmv_gui.py).
+     * Readers skip lines starting with '#'. phase is last because it may contain
+     * any character; a newline in it is printed as a space to keep it one line.
+     * vmsize_kb / vmrss_kb are -1 when status has no such line (zombie, kernel thread). */
+    printf("# pid=%d;name=%s;state=%c;threads=%d;vmsize_kb=%ld;vmrss_kb=%ld;"
+           "minflt=%lu;majflt=%lu;phase=",
+           in->pid, in->name, in->state, in->threads, in->vm_size_kb, in->vm_rss_kb,
+           in->minflt, in->majflt);
+    for (p = hdr->phase; *p != '\0'; p++)
+        printf("%c", (*p == '\n' || *p == '\r') ? ' ' : *p);
+    printf("\n");
+
     printf("start,end,perms,kind,size_bytes,path\n");
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < hdr->nregions; i++) {
         printf("0x%016lx,0x%016lx,%s,%s,%lu,\"",
                r[i].start, r[i].end, r[i].perms, kind_name(r[i].kind),
                r[i].end - r[i].start);

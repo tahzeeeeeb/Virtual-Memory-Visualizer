@@ -55,7 +55,8 @@ Numbers in the docs come from that machine and will differ a little on others.
 - `scan [--repeat N]` - read the status of every PID given on stdin in parallel (OpenMP)
   and print the top 10 by memory use.
   Example: `ls /proc | grep '^[0-9][0-9]*$' | ./bin/vmv scan --repeat 20`
-- `csv <pid>` - the region list as CSV.
+- `csv <pid>` - the region list as CSV. The first line is `# pid=...;name=...;state=...;phase=...`
+  with the header numbers; readers skip lines that start with `#`.
   Example: `./bin/vmv csv $$ > /tmp/layout.csv`
 - `serve` - Unix socket server on `/tmp/vmv.sock` that answers "summary of PID X".
   Example: `./bin/vmv serve &` then `./bin/vmv_client $$`
@@ -67,6 +68,24 @@ Numbers in the docs come from that machine and will differ a little on others.
 - `./bin/vmv_client <pid>` - asks a running `vmv serve`. Example: `./bin/vmv_client $$`
 - `scripts/summarize_maps.sh <pid>` - a shell-only cross-check of the region sizes.
 - `scripts/package.sh` - makes `vmv_submission_YYYYMMDD.tar.gz` and checks it.
+
+## GUI window (optional)
+
+`tools/vmv_gui.py` opens a matplotlib window that redraws every second: the address space
+as four stacked blocks (STACK, MEMORY-MAPPED AREA, HEAP, PROGRAM), a panel with the
+process numbers and phase, and a chart of VmSize and VmRSS. Python is only the display:
+every number comes from `./bin/vmv csv <pid>`.
+
+```
+python3 tools/vmv_gui.py <pid>                    # watch any of your processes
+python3 tools/vmv_gui.py --demo                   # run bin/vmv_demo and watch it to the end
+python3 tools/vmv_gui.py $$ --png /tmp/gui.png    # one frame, no window
+python3 tools/vmv_gui.py --demo --frames /tmp/f   # no window, one PNG per sample
+```
+
+The window needs a Qt backend for matplotlib: `sudo pacman -S python-pyqt6`
+(Ubuntu: `sudo apt install python3-pyqt5`). Without it the script says so and exits;
+`--png` and `--frames` work without any GUI backend. Menu option 11 runs `--demo`.
 
 ## Exit codes
 
@@ -99,7 +118,8 @@ Numbers in the docs come from that machine and will differ a little on others.
 - `src/server.h`, `src/server.c` - the Unix socket server
 - `src/client.c` - `main` of `bin/vmv_client`
 - `src/main.c` - `main` of `bin/vmv`: argument parsing and the subcommands
-- `tools/plot_layout.py` - optional matplotlib renderer: CSV to PNG (the only Python file)
+- `tools/plot_layout.py` - optional matplotlib renderer: CSV to PNG
+- `tools/vmv_gui.py` - optional live matplotlib window fed by `bin/vmv csv`
 - `docs/LAB_MAPPING.md` - where each lab concept is used in the code
 - `docs/DEMO.md` - the presenter script for class
 - `docs/VIVA.md` - likely viva questions with answers

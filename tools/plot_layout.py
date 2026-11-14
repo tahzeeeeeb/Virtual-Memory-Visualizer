@@ -43,8 +43,8 @@ def main():
     ap.add_argument("-o", "--output", required=True, help="PNG file to write")
     ap.add_argument("--pid", default="?", help="PID shown in the title")
     args = ap.parse_args()
-    with open(args.csv_file, newline="") as f:
-        rows = list(csv.DictReader(f))     # ascending addresses, as vmv prints them
+    with open(args.csv_file, newline="") as f:   # skip the "# pid=..." info line
+        rows = list(csv.DictReader(line for line in f if not line.startswith("#")))
     if not rows:
         print(f"{args.csv_file}: no regions")
         sys.exit(1)

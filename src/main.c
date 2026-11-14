@@ -99,7 +99,7 @@ static int cmd_snapshot(int pid, const char *outfile, int color, int as_csv)
             return 1;
         }
         if (as_csv)
-            render_csv(regions, hdr.nregions);
+            render_csv(&hdr, regions);
         else
             render_snapshot(&hdr, regions, NULL, NULL, color, 0);
         fflush(stdout);

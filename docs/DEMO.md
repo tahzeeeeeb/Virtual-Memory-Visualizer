@@ -133,6 +133,22 @@ open the PNG with `xdg-open vmv_layout.png`.
 **Close (15 s).** "Everything came from files the kernel already publishes, read with the
 system calls from the labs."
 
+## Optional: the GUI window (menu option 11)
+
+`python3 tools/vmv_gui.py --demo` starts `bin/vmv_demo 3 2` and shows it in a matplotlib
+window that redraws every second. It can replace or follow option 1 in Part 2.
+
+- Left: STACK, MEMORY-MAPPED AREA (top 4 files, anonymous memory, the rest), HEAP and
+  PROGRAM as blocks; a block that is new or grew gets a thick outline for one frame.
+- Right: PID, state, threads, Reserved (VmSize), In RAM (VmRSS), page faults and the phase;
+  below it a chart of VmSize and VmRSS. Point at the chart in phase 2 (VmSize jumps, VmRSS
+  stays flat) and phase 3 (VmRSS catches up).
+- At the end: "ZOMBIE: exited, not yet reaped" for 3 samples, then "Reaped, exit status 0".
+
+Install the window backend before class: `sudo pacman -S python-pyqt6`
+(Ubuntu: `sudo apt install python3-pyqt5`). Without it the script prints that command and
+exits. Python only draws; every number comes from `./bin/vmv csv`.
+
 ## What we measured on our VM
 
 Machine: Linux 7.3.3-1-cachyos, x86-64, 8 cores (`nproc`), glibc 2.44, gcc 16.2.1,

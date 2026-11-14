@@ -20,9 +20,10 @@ void render_snapshot(const struct snap_hdr *hdr, const struct region *r,
                      int color, int clear_screen);
 
 /*
- * Print the regions as CSV (ascending address order) for other tools:
- * start,end,perms,kind,size_bytes,path   - path always in double quotes.
+ * Print the regions as CSV (ascending address order) for other tools: first one
+ * "# pid=...;phase=..." info line, then start,end,perms,kind,size_bytes,path
+ * (path always in double quotes).
  */
-void render_csv(const struct region *r, int n);
+void render_csv(const struct snap_hdr *hdr, const struct region *r);
 
 #endif /* VMV_RENDER_H */

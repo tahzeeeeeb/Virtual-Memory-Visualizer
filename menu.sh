@@ -165,6 +165,14 @@ demo_csv() {
     fi
 }
 
+# 11
+demo_gui() {
+    local rc=0
+    # the window gets every number from ./bin/vmv csv; it closes the demo when you close it
+    python3 tools/vmv_gui.py --demo || rc=$?
+    echo "(vmv_gui exited with status $rc)"
+}
+
 main() {
     local choice   # select stores the chosen text here; we switch on $REPLY (the number)
     local -a options=(   # [Lab 4] indexed array of menu entries
@@ -178,6 +186,7 @@ main() {
         "OpenMP scan: 1 thread vs all cores"
         "Unix socket: server + client"
         "CSV + matplotlib PNG (optional)"
+        "GUI live demo (matplotlib window)"
         "Quit"
     )
 
@@ -207,7 +216,8 @@ main() {
             8)  demo_scan            || echo "Demo failed." ;;
             9)  demo_socket          || echo "Demo failed." ;;
             10) demo_csv             || echo "Demo failed." ;;
-            11) echo "Bye."; break ;;
+            11) demo_gui             || echo "Demo failed." ;;
+            12) echo "Bye."; break ;;
             *)  echo "Please type a number from 1 to ${#options[@]}."; continue ;;
         esac
         pause

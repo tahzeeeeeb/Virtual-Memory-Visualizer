@@ -26,7 +26,8 @@ pthread_cond_*, semaphores, atomics (synchronization is Lab 11 — not covered y
 strtok, qsort, realloc, select/poll/epoll, ncurses or any third-party C library,
 Makefile/CMake (Lab 2 taught gcc -c + link, which build.sh does), -std=c99/-std=c11
 flags (strict modes hide syscall(); use gcc's default dialect). Python is allowed ONLY
-in tools/plot_layout.py (Part 5).
+in tools/plot_layout.py (Part 5) and tools/vmv_gui.py, as a display layer: both get
+every number from `bin/vmv csv` output and never read /proc themselves.
 
 ## Rules
 
