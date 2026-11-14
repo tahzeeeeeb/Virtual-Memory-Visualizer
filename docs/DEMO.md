@@ -43,10 +43,12 @@ system calls and draws the address space, live."
 Say: the target is forked before the pipe exists, so only the sampler holds the write end.
 
 **Snapshot of the menu's own shell (45 s) - option 2.** Point at:
-- the stack at the top, the program's CODE at the bottom (like the textbook picture),
-- the `~~ ... unmapped ~~` lines: most of the address space is empty,
-- the user/kernel boundary line (user space ends at 128 TiB),
-- the Totals block and "Sum of all regions" next to VmSize.
+- the four boxes: STACK at the top, then MEMORY-MAPPED AREA, HEAP, and PROGRAM at the
+  bottom (like the textbook picture); each box shows its size and its address range,
+- the `⋮ ... unused` lines between the boxes: most of the address space is empty,
+- inside MEMORY-MAPPED AREA: the biggest libraries with their code size, then anonymous
+  mmap and the kernel pages ([vdso] [vvar]),
+- the footer: the number of regions; `./vmv.sh -p <pid> -D` lists every one of them.
 
 **How to read one maps line (30 s).** In the second terminal: `grep libc /proc/$$/maps | grep r-xp`.
 On our VM it printed:
@@ -56,7 +58,8 @@ On our VM it printed:
 ```
 
 Six columns: address range, permissions, offset in the file, device, inode, path.
-`r-xp` = readable, not writable, executable, private. vmv draws the same line as:
+`r-xp` = readable, not writable, executable, private. With `--detail` vmv draws the same
+line as:
 
 ```
   00007ff1a5424000-00007ff1a55d3000 r-xp    1.7 MiB      431 pg  SHARED-LIB     #########                      /usr/lib/libc.so.6
@@ -73,26 +76,28 @@ then `read(...)` lines, then `close(...)`: plain system calls, no stdio.
 
 **Live demo - option 1.** The workload changes phase every 3 seconds; the whole run
 takes about 27 seconds. The current phase is printed in the header (`Phase: ...`).
-`+` marks a new region, `~` a resized one, and removed regions are listed under
-"Removed since last sample". Point at, phase by phase:
+Each box title shows its change since the last sample, and the lines under the boxes
+list regions that appeared (`+ new`) or disappeared (`- gone`). Point at, phase by phase:
 
-- **0 baseline** - note VmSize, VmRSS and the minor fault count.
-- **1 small mallocs** - `[heap]` grows (brk). In the demo the target is a forked copy
-  of vmv, so the growth shows as a second `+ [heap]` row.
-- **2 malloc(128 MiB)** - a new 128 MiB ANON-MMAP row; VmSize +128 MiB, but VmRSS
-  barely changes: demand paging, nothing is in RAM until it is touched.
-- **3 touch 64 MiB** - VmRSS +64 MiB and the minor page faults jump.
-- **4 four pthreads** - `Threads: 5 (+4)` and VmSize +32 MiB (4 stacks of 8 MiB).
+- **0 baseline** - note Reserved (VmSize), In RAM (VmRSS) and the minor fault count.
+- **1 small mallocs** - the HEAP box grows (brk). In the demo the target is a forked copy
+  of vmv, so the growth also shows as a `+ new HEAP` line.
+- **2 malloc(128 MiB)** - MEMORY-MAPPED AREA `(+128.0 MiB)` and `+ new ANON-MMAP 128.0 MiB`;
+  Reserved +128 MiB, but In RAM barely changes: demand paging, nothing is in RAM until it
+  is touched.
+- **3 touch 64 MiB** - In RAM +64 MiB and the minor page faults jump.
+- **4 four pthreads** - `5 threads (+4)` and Reserved +32 MiB (4 stacks of 8 MiB): a
+  `thread stacks` row, or, with glibc 2.44 as on our VM, `+ new ANON-MMAP 32.0 MiB`.
   In the second terminal run `ps -L -p <target pid> -o pid,lwp,nlwp,comm` - the target
   PID is in the "Processes:" line under the diagram. NLWP is 5: one process, five threads.
   (Phase 4 lasts about 6 seconds. If you do not want to type the PID, `ps -L -C vmv -o pid,lwp,nlwp,comm`
   lists all three vmv processes; the target is the one with NLWP 5.)
 - **5 threads joined** - Threads back to 1, but the stack memory stays: glibc keeps
   freed thread stacks for reuse.
-- **6 free(128 MiB)** - the 128 MiB row appears under "Removed since last sample"
-  (munmap); VmSize -128 MiB.
-- **7 exit** - `State: Z`, `Regions: 0`, the ZOMBIE message. The address space is gone
-  but the process-table entry stays until the parent calls waitpid().
+- **6 free(128 MiB)** - `- gone ANON-MMAP 128.0 MiB` (munmap); Reserved -128 MiB.
+- **7 exit** - the header says `zombie`, the boxes are gone, and the ZOMBIE message
+  appears. The address space is gone but the process-table entry stays until the
+  parent calls waitpid().
 - **End** - `Reaped target PID ...: exited with status 0` and
   `/proc/<pid> no longer exists`.
 

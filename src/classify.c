@@ -5,6 +5,7 @@
  * is worked out from those with the simple rules in classify_regions() below.
  */
 #include <string.h>
+#include <ctype.h>
 
 #include "classify.h"
 
@@ -60,6 +61,23 @@ const char *kind_meaning(int kind)
 }
 
 /*
+ * 1 if path names a shared library: ".so" at the very end (system.so) or ".so."
+ * followed by a digit (libc.so.6, ld-linux-x86-64.so.2). /etc/ld.so.cache has
+ * ".so" in the middle of a word, so it is an ordinary mapped file.
+ */
+static int is_shared_lib(const char *path)
+{
+    const char *p = strstr(path, ".so");
+
+    while (p != NULL) {
+        if (p[3] == '\0' || (p[3] == '.' && isdigit((unsigned char)p[4])))
+            return 1;
+        p = strstr(p + 1, ".so");   /* look for a later ".so" */
+    }
+    return 0;
+}
+
+/*
  * Set r[i].kind for every region. maps is sorted by ascending address, so r[i-1]
  * is the region just below r[i] - some rules look at that neighbour.
  */
@@ -95,7 +113,7 @@ void classify_regions(struct region *r, int n)
                 r[i].kind = K_DATA;
             else
                 r[i].kind = K_RODATA;
-        } else if (!anon && strstr(r[i].path, ".so") != NULL) {
+        } else if (!anon && is_shared_lib(r[i].path)) {
             r[i].kind = K_SHLIB;                                 /* rule 5 */
         } else if (!anon) {
             r[i].kind = K_FILE;                                  /* rule 6 */

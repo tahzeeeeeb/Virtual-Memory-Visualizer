@@ -44,13 +44,17 @@ Numbers in the docs come from that machine and will differ a little on others.
 
 ## bin/vmv subcommands
 
-- `snapshot <pid> [-o FILE] [--no-color]` - one diagram, highest address at the top.
+- `snapshot <pid> [-o FILE] [--no-color] [--detail]` - the address space as four boxes,
+  highest address at the top: STACK, MEMORY-MAPPED AREA (biggest files, thread stacks,
+  anonymous mmap, kernel pages), HEAP, PROGRAM, with the unused gaps between them. Fits
+  80 columns x 40 lines. `--detail` prints one row per line of /proc/<pid>/maps instead.
   Example: `./bin/vmv snapshot $$`
-- `live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color]` - redraw every SEC seconds
-  and mark new (`+`), resized (`~`) and removed (`-`) regions.
+- `live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color] [--detail]` - redraw every SEC
+  seconds; each box title shows its change since the last sample, and up to 4 lines list
+  regions that appeared (`+ new`) or disappeared (`- gone`).
   Example: `./bin/vmv live $$ -i 1 -n 3`
-- `demo [-i SEC] [-n COUNT] [-o FILE] [--no-color]` - fork the demo workload and watch it
-  from start to finish, including its zombie state.
+- `demo [-i SEC] [-n COUNT] [-o FILE] [--no-color] [--detail]` - fork the demo workload and
+  watch it from start to finish, including its zombie state.
   Example: `./bin/vmv demo -i 1 -o /tmp/demo.txt`
 - `scan [--repeat N]` - read the status of every PID given on stdin in parallel (OpenMP)
   and print the top 10 by memory use.

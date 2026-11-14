@@ -124,8 +124,15 @@ def mmap_subblocks(regions):
     anon = {"key": "anon", "label": "anonymous (big malloc, thread stacks)",
             "size": 0, "hi": 0, "color": COLORS["ANON-MMAP"]}
     kernel = {"size": 0, "hi": 0}
+    stacks = {"key": "threads", "size": 0, "hi": 0, "count": 0, "each": 0,
+              "color": COLORS["THREAD-STACK?"]}
     for r in regions:
-        if r["kind"] in ("SHARED-LIB", "FILE-MAP"):
+        if r["kind"] == "THREAD-STACK?":       # pthread stacks get their own sub-block
+            stacks["size"] += r["size"]
+            stacks["hi"] = max(stacks["hi"], r["end"])
+            stacks["count"] += 1
+            stacks["each"] = r["size"]
+        elif r["kind"] in ("SHARED-LIB", "FILE-MAP"):
             f = files[os.path.basename(r["path"])]
             f["size"] += r["size"]
             f["hi"] = max(f["hi"], r["end"])
@@ -133,12 +140,15 @@ def mmap_subblocks(regions):
         elif r["kind"] == "KERNEL-SPECIAL":    # [vdso], [vvar]
             kernel["size"] += r["size"]
             kernel["hi"] = max(kernel["hi"], r["end"])
-        else:                                  # ANON-MMAP, THREAD-STACK?, GUARD
+        else:                                  # ANON-MMAP, GUARD
             anon["size"] += r["size"]
             anon["hi"] = max(anon["hi"], r["end"])
     ranked = sorted(files.items(), key=lambda kv: kv[1]["size"], reverse=True)
     subs = [{"key": "file:" + name, "label": name, "size": f["size"], "hi": f["hi"],
              "color": COLORS[f["kind"]]} for name, f in ranked[:4]]
+    if stacks["count"]:
+        stacks["label"] = f"thread stacks {stacks['count']} × {human(stacks['each'])}"
+        subs.append(stacks)
     if anon["size"]:
         subs.append(anon)
     rest = ranked[4:]

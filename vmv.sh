@@ -5,12 +5,13 @@ cd "$(dirname "$0")" || exit 1   # run from the repo root, wherever we were call
 
 usage() {
     cat <<'EOF'
-Usage: ./vmv.sh [-p PID | -n NAME] [-l | -d | -s | -C] [-i SEC] [-c COUNT] [-r N] [-o FILE]
-  (no mode)  one snapshot of the process
+Usage: ./vmv.sh [-p PID | -n NAME] [-l | -d | -s | -C] [-D] [-i SEC] [-c COUNT] [-r N] [-o FILE]
+  (no mode)  one snapshot of the process (summary: one box per memory area)
   -l         live view of the process
   -d         live demo workload (fork + pipe + pthreads + zombie), no PID needed
   -s         system-wide OpenMP scan of all PIDs, no PID needed
   -C         region list as CSV
+  -D         detail view: one row per line of /proc/<pid>/maps (snapshot, live, demo)
   -p PID     process ID
   -n NAME    your newest process with that name (pgrep -n)
   -i SEC     live/demo: seconds between samples (default 1)
@@ -33,11 +34,11 @@ is_number() {
 main() {
     local OPTIND=1 OPTARG="" opt
     local pid="" name="" mode="snapshot" nmodes=0
-    local interval=1 count=0 repeat=20 outfile="" rc
+    local interval=1 count=0 repeat=20 outfile="" detail=0 rc
     local -a args=()   # [Lab 4] indexed array: the bin/vmv command line
 
     # [Lab 4] getopts: a letter followed by ':' takes a value in $OPTARG
-    while getopts "p:n:i:c:o:r:ldsCh" opt; do
+    while getopts "p:n:i:c:o:r:ldsCDh" opt; do
         case "$opt" in
             p) pid="$OPTARG" ;;
             n) name="$OPTARG" ;;
@@ -45,6 +46,7 @@ main() {
             d) mode="demo";  nmodes=$((nmodes + 1)) ;;
             s) mode="scan";  nmodes=$((nmodes + 1)) ;;
             C) mode="csv";   nmodes=$((nmodes + 1)) ;;
+            D) detail=1 ;;
             i) interval="$OPTARG" ;;
             c) count="$OPTARG" ;;
             o) outfile="$OPTARG" ;;
@@ -128,6 +130,15 @@ main() {
         csv)      args=(csv "$pid") ;;
         scan)     args=(scan --repeat "$repeat") ;;
     esac
+    if [ "$detail" -eq 1 ]; then
+        case "$mode" in
+            snapshot|live|demo) args+=(--detail) ;;
+            *)
+                echo "vmv.sh: -D works with snapshot, live (-l) and demo (-d)" >&2
+                exit 1
+                ;;
+        esac
+    fi
     if [ -n "$outfile" ]; then
         case "$mode" in
             snapshot|live|demo) args+=(-o "$outfile") ;;
@@ -140,6 +151,7 @@ main() {
     rc=0
     if [ "$mode" = "scan" ]; then
         # [Lab 1] pipeline: list /proc, keep only the numeric names (PIDs), feed our program
+        # shellcheck disable=SC2010  # ls | grep is the point here; /proc names are plain PIDs
         ls /proc | grep '^[0-9][0-9]*$' | ./bin/vmv "${args[@]}" || rc=$?
     else
         ./bin/vmv "${args[@]}" || rc=$?

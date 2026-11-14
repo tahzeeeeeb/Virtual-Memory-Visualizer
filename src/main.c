@@ -28,9 +28,9 @@ enum command { CMD_SNAPSHOT, CMD_LIVE, CMD_DEMO, CMD_SCAN, CMD_CSV, CMD_SERVE };
 static void usage(void)
 {
     fprintf(stderr,
-            "usage: vmv snapshot <pid> [-o FILE] [--no-color]\n"
-            "       vmv live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color]\n"
-            "       vmv demo [-i SEC] [-n COUNT] [-o FILE] [--no-color]\n"
+            "usage: vmv snapshot <pid> [-o FILE] [--no-color] [--detail]\n"
+            "       vmv live <pid> [-i SEC] [-n COUNT] [-o FILE] [--no-color] [--detail]\n"
+            "       vmv demo [-i SEC] [-n COUNT] [-o FILE] [--no-color] [--detail]\n"
             "       vmv scan [--repeat N]     (PIDs on stdin, e.g.  ls /proc | grep '^[0-9][0-9]*$' | ./bin/vmv scan)\n"
             "       vmv csv <pid>\n"
             "       vmv serve\n");
@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
     int count = 0;               /* -n: 0 = until the process ends */
     int repeat = 1;              /* --repeat: how many times scan runs */
     int color = 1;               /* colour on by default */
+    int detail = 0;              /* --detail: one row per maps line instead of the summary */
     const char *outfile = NULL;
     int takes_pid, takes_output, takes_timing;
     int rc;
@@ -153,6 +154,8 @@ int main(int argc, char *argv[])
             color = 0;           /* a file should not contain escape codes */
         } else if (strcmp(argv[i], "--no-color") == 0 && takes_output) {
             color = 0;
+        } else if (strcmp(argv[i], "--detail") == 0 && takes_output) {
+            detail = 1;
         } else if (strcmp(argv[i], "-i") == 0 && takes_timing) {
             if (i + 1 >= argc || !is_digits(argv[i + 1]))
                 usage();
@@ -177,6 +180,7 @@ int main(int argc, char *argv[])
     }
     if (takes_pid && pid < 0)
         usage();
+    render_set_detail(detail);   /* summary boxes by default, --detail = every region */
 
     switch (cmd) {
     case CMD_SNAPSHOT:
