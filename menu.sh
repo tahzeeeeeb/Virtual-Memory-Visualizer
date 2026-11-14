@@ -58,7 +58,7 @@ demo_summary() {
 # 5
 demo_permission() {
     local rc=0
-    # [Lab 3] $EUID = effective user ID; 0 means root
+    # $EUID = effective user ID (bash built-in); 0 means root
     if [ "$EUID" -eq 0 ]; then
         echo "You are root, so every read succeeds. Run this demo as a normal user."
         return 0
@@ -81,7 +81,7 @@ demo_permission() {
 demo_strace_memory() {
     local stack_kb stack rc=0
     if ! command -v strace > /dev/null; then
-        echo "strace is not installed: sudo apt install strace"
+        echo "strace is not installed: sudo pacman -S strace (Ubuntu/Debian: sudo apt install strace)"
         return 0
     fi
     stack_kb=$(ulimit -s)
@@ -91,18 +91,18 @@ demo_strace_memory() {
     fi
     stack=$(( stack_kb * 1024 ))   # [Lab 3] arithmetic: thread stack size in bytes
     echo "Tracing ./bin/vmv_demo 1 (takes about 10 s)..."
-    strace -f -o /tmp/vmv_trace.txt -e trace=brk,mmap,munmap,mprotect,clone,clone3 \
+    strace -f -o /tmp/vmv_trace.txt -e trace=brk,mmap,munmap,mprotect,madvise,clone,clone3 \
         ./bin/vmv_demo 1 || rc=$?
     echo "(vmv_demo exited with status $rc)"
     echo
-    echo "brk = heap grows | 134221824 = malloc(128 MiB) + 4 KiB header | $(( stack + 4096 )) = thread stack + guard page | clone3 = new thread"
-    grep -E "brk\(|134221824|$(( stack + 4096 ))|clone3?\(" /tmp/vmv_trace.txt | head -n 40 || true
+    echo "brk = heap grows | 134221824 = malloc(128 MiB) + 4 KiB header | $(( stack + 4096 )) = thread stack + guard page | MADV_GUARD_INSTALL = guard page inside the stack mapping | clone3 = new thread"
+    grep -E "brk\(|134221824|$(( stack + 4096 ))|clone3?\(|MADV_GUARD_INSTALL" /tmp/vmv_trace.txt | head -n 40 || true
 }
 
 # 7
 demo_strace_proc() {
     if ! command -v strace > /dev/null; then
-        echo "strace is not installed: sudo apt install strace"
+        echo "strace is not installed: sudo pacman -S strace (Ubuntu/Debian: sudo apt install strace)"
         return 0
     fi
     # [Lab 5] every /proc file is read with plain open/read/close system calls
@@ -139,7 +139,7 @@ demo_socket() {
     local pid server
     rm -f /tmp/vmv_server.log
     ./bin/vmv serve > /tmp/vmv_server.log 2>&1 &   # [Lab 6] run the server in the background
-    server=$!                                    # [Lab 6] $! = PID of that background job
+    server=$!                                    # $! = PID of that background job (bash built-in, like $$)
     sleep 1
     ls -l /tmp/vmv.sock || true   # [Lab 2] the first letter 's' = socket file type
     pid=$(ask_pid "$$")
@@ -161,7 +161,7 @@ demo_csv() {
     if python3 -c 'import matplotlib' 2>/dev/null && [ -f tools/plot_layout.py ]; then
         python3 tools/plot_layout.py /tmp/vmv_layout.csv -o vmv_layout.png
     else
-        echo "Optional: sudo apt install python3-matplotlib (tools/plot_layout.py is added in Part 5)"
+        echo "Optional: sudo pacman -S python-matplotlib (Ubuntu/Debian: sudo apt install python3-matplotlib) to generate vmv_layout.png"
     fi
 }
 
@@ -181,7 +181,7 @@ main() {
         "Snapshot: pick one of my processes"
         "Raw maps summary (shell cross-check)"
         "Permission check on PID 1 (Lab 2 vs procfs)"
-        "strace: malloc -> brk/mmap, pthread_create -> mmap + mprotect + clone3"
+        "strace: malloc -> brk/mmap, pthread_create -> mmap + madvise guard + clone3"
         "strace: vmv reads /proc with open/read/close"
         "OpenMP scan: 1 thread vs all cores"
         "Unix socket: server + client"
