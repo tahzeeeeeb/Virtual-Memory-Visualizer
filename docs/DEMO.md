@@ -141,15 +141,51 @@ system calls from the labs."
 
 ## Optional: the GUI window (menu option 11)
 
-`python3 tools/vmv_gui.py --demo` starts `bin/vmv_demo 3 2` and shows it in a matplotlib
-window that redraws every second. It can replace or follow option 1 in Part 2.
+`python3 tools/vmv_gui.py --demo` starts `bin/vmv_demo 3 2` and shows it in a 16:9
+matplotlib window that samples once a second and animates at 30 fps. It can replace or
+follow option 1 in Part 2. On the projector use
+`python3 tools/vmv_gui.py --demo --scale 1.25` and press F for fullscreen; add
+`--theme dark` if the room is dark.
 
-- Left: STACK, MEMORY-MAPPED AREA (top 4 files, anonymous memory, the rest), HEAP and
-  PROGRAM as blocks; a block that is new or grew gets a thick outline for one frame.
-- Right: PID, state, threads, Reserved (VmSize), In RAM (VmRSS), page faults and the phase;
-  below it a chart of VmSize and VmRSS. Point at the chart in phase 2 (VmSize jumps, VmRSS
-  stays flat) and phase 3 (VmRSS catches up).
-- At the end: "ZOMBIE: exited, not yet reaped" for 3 samples, then "Reaped, exit status 0".
+- Banner: "Phase N of 7", progress dots and what the demo just did. Read it aloud.
+- Left: the address space, high addresses at the top: STACK, MEMORY-MAPPED AREA, HEAP and
+  PROGRAM (code, rodata, data, bss). Inside the memory-mapped area: the top 4 files, every
+  anonymous region of 1 MiB or more on its own "anonymous mmap" row, the small ones
+  together as "small anonymous (n)", then "… N more". Normally heights are on a log
+  scale, so a bigger region is always a taller block.
+- Right: Reserved (VmSize) and In RAM (VmRSS), the share in RAM, page faults and threads;
+  below, both on a 60-second chart.
+
+**Focus view.** After every sample the block whose size changed most (64 KiB or more; a
+new region counts with its whole size) becomes the focus: it grows to 30 % of the column,
+gets an outline in its own colour, its name in large type and a line saying what
+changed. Every other block shrinks but stays visible, so the whole address space is
+still on screen. What to point at:
+
+- Phase 1: HEAP is the big block, "grew 132 KiB → 1.4 MiB" (brk moved the heap's end).
+- Phase 2: a new "anonymous mmap" row, "+128.0 MiB · new region". In RAM barely moves:
+  demand paging.
+- Phase 3: no region changes size, so the focus stays on the 128 MiB row. In RAM pulses
+  and shows a pill of about "+64.0 MiB": the touched pages are now in RAM.
+- Phase 4: another new row, "+32.0 MiB · new region", "appeared with +4 threads". The
+  window only shows that both happened in the same sample; explain yourself that each
+  thread needs a stack and that glibc maps them with mmap.
+- Phase 6: "−128.0 MiB · freed" fades out where the region was (free() handed it back
+  with munmap), then the column returns to the overview.
+- Zombie: no focus; every block fades.
+
+The focus stays until the next change of 64 KiB or more; after 8 s without one the
+column eases back to the overview. The caption under the column says which mode is on.
+
+**Presenter control.** Click a block to pin the focus on it (dashed outline, caption
+"pinned", no 8 s timeout); its second line shows its size and start address. Click the
+empty column to unpin. O turns auto focus off and on (off is "overview": log heights
+only, no focus until you pin one).
+
+Keys: Space pauses sampling (to talk over a phase; the dot turns gray and the focus
+holds), F fullscreen, O auto focus on/off, R restarts the demo from phase 0 (if a
+question needs a phase again), Q or Esc quits. The old demo is stopped and reaped on R
+and Q.
 
 Install the window backend before class: `sudo pacman -S python-pyqt6`
 (Ubuntu: `sudo apt install python3-pyqt5`). Without it the script prints that command and
