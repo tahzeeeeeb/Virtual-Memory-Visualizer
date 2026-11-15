@@ -186,6 +186,7 @@ Ubuntu, `python3-pyqt6` on Kali (see "Install and run"). Without it the script s
 `vmv_client` uses the same numbers: 0 for a `PID ...` reply, 2 if it cannot connect,
 3 for an `ERROR ...` reply.
 
+
 ## Project layout
 
 - `CLAUDE.md` - course constraints and coding rules for the project
